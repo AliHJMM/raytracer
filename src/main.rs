@@ -15,11 +15,19 @@ use plane::Plane;
 use ray::Ray;
 use sphere::Sphere;
 
-fn write_color(w: &mut BufWriter<File>, pixel_color: Color) {
-    let r = (pixel_color.x.clamp(0.0, 1.0) * 255.999) as i32;
-    let g = (pixel_color.y.clamp(0.0, 1.0) * 255.999) as i32;
-    let b = (pixel_color.z.clamp(0.0, 1.0) * 255.999) as i32;
-    writeln!(w, "{r} {g} {b}").unwrap();
+fn write_color(w: &mut BufWriter<File>, pixel_color: Color, samples_per_pixel: i32) {
+    let scale = 1.0 / samples_per_pixel as f64;
+    let mut r = pixel_color.x * scale;
+    let mut g = pixel_color.y * scale;
+    let mut b = pixel_color.z * scale;
+
+    // Gamma-correct for gamma=2.0
+    r = r.sqrt();
+    g = g.sqrt();
+    b = b.sqrt();
+
+    let to_byte = |c: f64| (c.clamp(0.0, 0.999) * 256.0) as i32;
+    writeln!(w, "{} {} {}", to_byte(r), to_byte(g), to_byte(b)).unwrap();
 }
 
 // Simple ambient + diffuse (Lambert)
@@ -93,16 +101,23 @@ fn main() {
     writeln!(w, "255").unwrap();
 
     // Render
+    let samples_per_pixel: i32 = 16; // try 16–64 for smoother edges
+
+    // Render
     for j in (0..image_height).rev() {
         for i in 0..image_width {
-            let u = i as f64 / (image_width - 1) as f64;
-            let v = j as f64 / (image_height - 1) as f64;
+            let mut pixel_color = Color::new(0.0, 0.0, 0.0);
+            for _s in 0..samples_per_pixel {
+                let u = (i as f64 + math::random_f64()) / (image_width - 1) as f64;
+                let v = (j as f64 + math::random_f64()) / (image_height - 1) as f64;
 
-            let dir = lower_left_corner + horizontal * u + vertical * v - origin;
-            let r = Ray::new(origin, dir);
+                let dir = lower_left_corner + horizontal * u + vertical * v - origin;
+                let r = Ray::new(origin, dir);
 
-            let pixel_color = ray_color(&r, &world, &light);
-            write_color(&mut w, pixel_color);
+                let sample = ray_color(&r, &world, &light);
+                pixel_color += sample;
+            }
+            write_color(&mut w, pixel_color, samples_per_pixel);
         }
     }
 }

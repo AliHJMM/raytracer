@@ -1,3 +1,8 @@
+use rand::Rng;
+pub fn random_f64() -> f64 {
+    // in [0,1)
+    rand::thread_rng().gen::<f64>()
+}
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Vec3 {
     pub x: f64,
