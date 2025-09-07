@@ -24,7 +24,7 @@ It computes light interactions (shadows, diffuse lighting, simple reflections) p
 cargo run --release -- --scene=sphere --res=800x600 --out=sphere.ppm
 
 # 2) Plane + Cube (dimmer than sphere image)
-cargo run --release -- --scene=cube_plane_dim --res=800x600 --out=cube_plane_dim.ppm
+cargo run --release -- --scene=cube_plane_dim --res=800x600  --out=cube_plane_dim.ppm
 
 # 3) All objects (sphere + cube + cylinder + plane)
 cargo run --release -- --scene=all --res=800x600 --out=all_objects.ppm
@@ -41,7 +41,14 @@ cargo run --release -- --scene=all_alt_cam --res=800x600 --out=all_objects_alt_c
 cargo build --release
 ```
 
-Default output size is set via the CLI (`--res=WxH`). Use higher `--spp` for smoother images.
+Default output size is set via the CLI (`--res=WxH`).  
+Use higher `--spp` for smoother images.
+
+Example:
+
+```bash
+cargo run --release -- --scene=all --res=800x600 --spp=1000 --out=all_smooth.ppm
+```
 
 ---
 
