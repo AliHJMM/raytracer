@@ -9,16 +9,24 @@ pub struct Cylinder {
     pub radius: f64,
     pub half_height: f64,
     pub albedo: Color,
+    pub reflectivity: f64,
 }
 
 impl Cylinder {
     /// Create a cylinder centered at `center`, with total height = 2*h.
-    pub fn new(center: Point3, radius: f64, half_height: f64, albedo: Color) -> Self {
+    pub fn new(
+        center: Point3,
+        radius: f64,
+        half_height: f64,
+        albedo: Color,
+        reflectivity: f64,
+    ) -> Self {
         Self {
             center,
             radius,
             half_height,
             albedo,
+            reflectivity,
         }
     }
 
@@ -66,10 +74,14 @@ impl Hittable for Cylinder {
                                 p_world.z - self.center.z,
                             )
                             .unit();
-                            let rec =
-                                HitRecord::with_face_normal(r, p_world, outward, root, self.albedo);
-                            t_hit = root;
-                            hit_rec = Some(rec);
+                            let rec = HitRecord::with_face_normal(
+                                r,
+                                p_world,
+                                outward,
+                                root,
+                                self.albedo,
+                                self.reflectivity,
+                            );
                         }
                     }
                 }
@@ -89,7 +101,14 @@ impl Hittable for Cylinder {
                     let dx = p.x - self.center.x;
                     let dz = p.z - self.center.z;
                     if dx * dx + dz * dz <= self.radius * self.radius + 1e-12 {
-                        let rec = HitRecord::with_face_normal(r, p, normal, t, self.albedo);
+                        let rec = HitRecord::with_face_normal(
+                            r,
+                            p,
+                            normal,
+                            t,
+                            self.albedo,
+                            self.reflectivity,
+                        );
                         t_hit = t;
                         hit_rec = Some(rec);
                     }

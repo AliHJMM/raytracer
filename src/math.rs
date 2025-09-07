@@ -44,6 +44,11 @@ impl Vec3 {
     }
 }
 
+pub fn reflect(v: Vec3, n: Vec3) -> Vec3 {
+    // Reflect v around normal n. Assumes n is unit.
+    v - n * (2.0 * Vec3::dot(v, n))
+}
+
 // Constructors for convenience
 pub type Point3 = Vec3;
 pub type Color = Vec3;

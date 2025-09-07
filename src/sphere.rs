@@ -6,14 +6,16 @@ pub struct Sphere {
     pub center: Point3,
     pub radius: f64,
     pub albedo: Color,
+    pub reflectivity: f64, // NEW
 }
 
 impl Sphere {
-    pub fn new(center: Point3, radius: f64, albedo: Color) -> Self {
+    pub fn new(center: Point3, radius: f64, albedo: Color, reflectivity: f64) -> Self {
         Self {
             center,
             radius,
             albedo,
+            reflectivity,
         }
     }
 }
@@ -47,6 +49,7 @@ impl Hittable for Sphere {
             outward_normal,
             root,
             self.albedo,
+            self.reflectivity,
         ))
     }
 }

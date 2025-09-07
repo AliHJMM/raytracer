@@ -84,25 +84,26 @@ impl Aabb {
 pub struct Cube {
     pub bounds: Aabb,
     pub albedo: Color,
+    pub reflectivity: f64,
 }
 
 impl Cube {
     /// Construct from center and edge size
-    pub fn from_center_size(center: Point3, size: f64, albedo: Color) -> Self {
+    pub fn from_center_size(center: Point3, size: f64, albedo: Color, reflectivity: f64) -> Self {
         let h = size * 0.5;
         let min = Point3::new(center.x - h, center.y - h, center.z - h);
         let max = Point3::new(center.x + h, center.y + h, center.z + h);
         Self {
             bounds: Aabb::new(min, max),
             albedo,
+            reflectivity,
         }
     }
-
-    /// Construct directly from min/max
-    pub fn from_min_max(min: Point3, max: Point3, albedo: Color) -> Self {
+    pub fn from_min_max(min: Point3, max: Point3, albedo: Color, reflectivity: f64) -> Self {
         Self {
             bounds: Aabb::new(min, max),
             albedo,
+            reflectivity,
         }
     }
 }
@@ -117,6 +118,7 @@ impl Hittable for Cube {
                 outward_normal,
                 t,
                 self.albedo,
+                self.reflectivity,
             ));
         }
         None

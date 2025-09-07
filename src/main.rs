@@ -16,6 +16,7 @@ use cube::Cube;
 use cylinder::Cylinder;
 use hittable::{Hittable, HittableList};
 use light::PointLight;
+use math::reflect;
 use math::{Color, Point3, Vec3};
 use plane::Plane;
 use ray::Ray;
@@ -65,11 +66,29 @@ fn shade_lambert_with_shadow(
     (hit_color * lighting) * light.intensity
 }
 
-fn ray_color(r: &Ray, world: &impl Hittable, light: &PointLight) -> Color {
-    if let Some(rec) = world.hit(r, 0.001, f64::INFINITY) {
-        return shade_lambert_with_shadow(rec.albedo, rec.normal, rec.p, light, world);
+fn ray_color(r: &Ray, world: &impl Hittable, light: &PointLight, depth: i32) -> Color {
+    if depth <= 0 {
+        return Color::new(0.0, 0.0, 0.0); // no contribution when we exceed bounce limit
     }
-    // sky
+
+    if let Some(rec) = world.hit(r, 0.001, f64::INFINITY) {
+        // Local shading
+        let local = shade_lambert_with_shadow(rec.albedo, rec.normal, rec.p, light, world);
+
+        // Reflection
+        let refl = rec.reflectivity.clamp(0.0, 1.0);
+        if refl > 0.0 {
+            const BIAS: f64 = 1e-4;
+            let reflect_dir = reflect(r.direction.unit(), rec.normal).unit(); // use incoming dir
+            let reflect_ray = Ray::new(rec.p + rec.normal * BIAS, reflect_dir);
+            let reflected = ray_color(&reflect_ray, world, light, depth - 1);
+            return local * (1.0 - refl) + reflected * refl;
+        } else {
+            return local;
+        }
+    } // <-- this closes the if-let block
+
+    // Sky
     let unit_dir = r.direction.unit();
     let t = 0.5 * (unit_dir.y + 1.0);
     (Color::new(1.0, 1.0, 1.0) * (1.0 - t)) + (Color::new(0.5, 0.7, 1.0) * t)
@@ -163,24 +182,24 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
         // 1) Sphere-only scene
         SceneKind::Sphere => {
             let mut world = HittableList::new();
+
             world.add(Box::new(Plane::new(
                 Point3::new(0.0, -0.5, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
                 Color::new(0.82, 0.82, 0.82),
+                0.15, // reflective floor
             )));
             world.add(Box::new(Sphere::new(
                 Point3::new(0.0, 0.0, -1.3),
                 0.5,
                 Color::new(0.9, 0.2, 0.2),
+                0.05, // subtle gloss only
             )));
 
             let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
-
-            let lookfrom = Point3::new(0.0, 0.0, 0.0);
-            let lookat = Point3::new(0.0, 0.0, -1.0);
             let cam = Camera::new(
-                lookfrom,
-                lookat,
+                Point3::new(0.0, 0.0, 0.0),
+                Point3::new(0.0, 0.0, -1.0),
                 Vec3::new(0.0, 1.0, 0.0),
                 90.0,
                 aspect_ratio,
@@ -197,25 +216,24 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
         // 2) Flat plane + cube with lower brightness than sphere image
         SceneKind::CubePlaneDim => {
             let mut world = HittableList::new();
+
             world.add(Box::new(Plane::new(
                 Point3::new(0.0, -0.5, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
                 Color::new(0.82, 0.82, 0.82),
+                0.05, // very subtle reflection
             )));
             world.add(Box::new(Cube::from_center_size(
                 Point3::new(0.0, -0.2, -1.3),
                 0.6,
-                Color::new(0.25, 0.28, 0.35), // darker cube albedo
+                Color::new(0.25, 0.28, 0.35),
+                0.00, // matte to keep it dim
             )));
 
-            // Dimmer light than sphere scene to satisfy "lower brightness"
-            let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(0.6, 0.6, 0.6));
-
-            let lookfrom = Point3::new(0.0, 0.0, 0.0);
-            let lookat = Point3::new(0.0, -0.1, -1.3);
+            let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(0.6, 0.6, 0.6)); // dimmer
             let cam = Camera::new(
-                lookfrom,
-                lookat,
+                Point3::new(0.0, 0.0, 0.0),
+                Point3::new(0.0, -0.1, -1.3),
                 Vec3::new(0.0, 1.0, 0.0),
                 90.0,
                 aspect_ratio,
@@ -232,30 +250,34 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
         // 3) All objects
         SceneKind::All => {
             let mut world = HittableList::new();
+
             world.add(Box::new(Plane::new(
                 Point3::new(0.0, -0.5, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
                 Color::new(0.82, 0.82, 0.82),
+                0.15,
             )));
             world.add(Box::new(Sphere::new(
                 Point3::new(-0.8, 0.0, -1.3),
                 0.5,
                 Color::new(0.9, 0.2, 0.2),
+                0.25,
             )));
             world.add(Box::new(Cube::from_center_size(
                 Point3::new(0.3, -0.2, -1.4),
                 0.6,
                 Color::new(0.35, 0.42, 0.65),
+                0.05,
             )));
             world.add(Box::new(Cylinder::new(
                 Point3::new(1.4, -0.1, -1.6),
                 0.3,
                 0.4,
                 Color::new(0.2, 0.7, 0.4),
+                0.20,
             )));
 
             let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
-
             let cam = Camera::new(
                 Point3::new(0.0, 0.0, 0.0),
                 Point3::new(0.0, 0.0, -1.0),
@@ -275,31 +297,36 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
         // 4) All objects, different camera (alternate perspective)
         SceneKind::AllAltCam => {
             let mut world = HittableList::new();
+
+            // same objects/materials as All
             world.add(Box::new(Plane::new(
                 Point3::new(0.0, -0.5, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
                 Color::new(0.82, 0.82, 0.82),
+                0.15,
             )));
             world.add(Box::new(Sphere::new(
                 Point3::new(-0.8, 0.0, -1.3),
                 0.5,
                 Color::new(0.9, 0.2, 0.2),
+                0.25,
             )));
             world.add(Box::new(Cube::from_center_size(
                 Point3::new(0.3, -0.2, -1.4),
                 0.6,
                 Color::new(0.35, 0.42, 0.65),
+                0.05,
             )));
             world.add(Box::new(Cylinder::new(
                 Point3::new(1.4, -0.1, -1.6),
                 0.3,
                 0.4,
                 Color::new(0.2, 0.7, 0.4),
+                0.20,
             )));
 
             let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
-
-            // shifted & elevated viewpoint
+            // different viewpoint
             let lookfrom = Point3::new(1.6, 0.5, 1.2);
             let lookat = Point3::new(0.1, -0.2, -1.5);
             let cam = Camera::new(
@@ -321,6 +348,7 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
 }
 
 fn main() {
+    let max_depth = 5;
     let args = parse_args();
     let Scene {
         world, light, cam, ..
@@ -341,7 +369,7 @@ fn main() {
                 let u = (i as f64 + math::random_f64()) / (args.width - 1) as f64;
                 let v = (j as f64 + math::random_f64()) / (args.height - 1) as f64;
                 let r = cam.get_ray(u, v);
-                pixel_color += ray_color(&r, &world, &light);
+                pixel_color += ray_color(&r, &world, &light, max_depth);
             }
             write_color(&mut w, pixel_color, args.samples_per_pixel);
         }
