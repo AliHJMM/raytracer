@@ -9,7 +9,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write};
 
 use hittable::{Hittable, HittableList};
-use light::{PointLight, PointLightPos};
+use light::PointLight;
 use math::{Color, Point3, Vec3};
 use plane::Plane;
 use ray::Ray;
@@ -32,22 +32,43 @@ fn write_color(w: &mut BufWriter<File>, pixel_color: Color, samples_per_pixel: i
 
 // Simple ambient + diffuse (Lambert)
 // No shadows yet; we'll add them next step.
-fn shade_lambert(hit_color: Color, normal: Vec3, p: Point3, light: &PointLight) -> Color {
-    let ambient = 0.12; // tweakable global ambient
-    let to_light = (light.position - p).unit();
+fn shade_lambert_with_shadow(
+    hit_color: Color,
+    normal: Vec3,
+    p: Point3,
+    light: &PointLight,
+    world: &impl Hittable,
+) -> Color {
+    let ambient = 0.12;
 
-    let ndotl = f64::max(0.0, Vec3::dot(normal, to_light));
-    let diffuse = ndotl;
+    // Shadow ray setup
+    let to_light_vec = light.position - p;
+    let light_dist = to_light_vec.length();
+    let to_light_dir = to_light_vec / light_dist;
+
+    // Small bias to avoid self-shadowing acne
+    const SHADOW_EPS: f64 = 1e-4;
+    let shadow_origin = p + normal * SHADOW_EPS;
+    let shadow_ray = Ray::new(shadow_origin, to_light_dir);
+
+    // If anything blocks the light before it reaches the point, it's in shadow
+    let in_shadow = world
+        .hit(&shadow_ray, SHADOW_EPS, light_dist - SHADOW_EPS)
+        .is_some();
+
+    let diffuse = if in_shadow {
+        0.0
+    } else {
+        f64::max(0.0, Vec3::dot(normal, to_light_dir))
+    };
 
     let lighting = ambient + diffuse;
-    let lit = hit_color * lighting;
-    // multiply by light intensity color (e.g., white → no tint)
-    lit * light.intensity
+    (hit_color * lighting) * light.intensity
 }
 
 fn ray_color(r: &Ray, world: &impl Hittable, light: &PointLight) -> Color {
     if let Some(rec) = world.hit(r, 0.001, f64::INFINITY) {
-        return shade_lambert(rec.albedo, rec.normal, rec.p, light);
+        return shade_lambert_with_shadow(rec.albedo, rec.normal, rec.p, light, world);
     }
     // Sky
     let unit_dir = r.direction.unit();
@@ -86,10 +107,7 @@ fn main() {
     )));
 
     // Light (white, above-right)
-    let light = PointLight::new(
-        PointLightPos(Point3::new(2.0, 2.0, 0.0)),
-        Color::new(1.0, 1.0, 1.0),
-    );
+    let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
 
     // Output file
     let file = File::create("output.ppm").expect("Failed to create file");
