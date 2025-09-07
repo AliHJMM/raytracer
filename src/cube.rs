@@ -99,13 +99,6 @@ impl Cube {
             reflectivity,
         }
     }
-    pub fn from_min_max(min: Point3, max: Point3, albedo: Color, reflectivity: f64) -> Self {
-        Self {
-            bounds: Aabb::new(min, max),
-            albedo,
-            reflectivity,
-        }
-    }
 }
 
 impl Hittable for Cube {

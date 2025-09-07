@@ -172,7 +172,6 @@ struct Scene {
     world: HittableList,
     light: PointLight,
     cam: Camera,
-    aspect_ratio: f64,
 }
 
 fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
@@ -205,12 +204,7 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
                 aspect_ratio,
             );
 
-            Scene {
-                world,
-                light,
-                cam,
-                aspect_ratio,
-            }
+            Scene { world, light, cam }
         }
 
         // 2) Flat plane + cube with lower brightness than sphere image
@@ -239,12 +233,7 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
                 aspect_ratio,
             );
 
-            Scene {
-                world,
-                light,
-                cam,
-                aspect_ratio,
-            }
+            Scene { world, light, cam }
         }
 
         // 3) All objects
@@ -286,12 +275,7 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
                 aspect_ratio,
             );
 
-            Scene {
-                world,
-                light,
-                cam,
-                aspect_ratio,
-            }
+            Scene { world, light, cam }
         }
 
         // 4) All objects, different camera (alternate perspective)
@@ -344,12 +328,7 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
                 aspect_ratio,
             );
 
-            Scene {
-                world,
-                light,
-                cam,
-                aspect_ratio,
-            }
+            Scene { world, light, cam }
         }
     }
 }

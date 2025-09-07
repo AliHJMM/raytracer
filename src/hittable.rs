@@ -6,9 +6,8 @@ pub struct HitRecord {
     pub p: Point3,
     pub normal: Vec3,
     pub t: f64,
-    pub front_face: bool,
     pub albedo: Color,
-    pub reflectivity: f64, // NEW: [0..1]
+    pub reflectivity: f64,
 }
 
 impl HitRecord {
@@ -18,10 +17,10 @@ impl HitRecord {
         outward_normal: Vec3,
         t: f64,
         albedo: Color,
-        reflectivity: f64, // NEW
+        reflectivity: f64,
     ) -> Self {
-        let front_face = Vec3::dot(r.direction, outward_normal) < 0.0;
-        let normal = if front_face {
+        let front = Vec3::dot(r.direction, outward_normal) < 0.0;
+        let normal = if front {
             outward_normal
         } else {
             -outward_normal
@@ -30,7 +29,6 @@ impl HitRecord {
             p,
             normal,
             t,
-            front_face,
             albedo,
             reflectivity,
         }
@@ -53,9 +51,6 @@ impl HittableList {
     }
     pub fn add(&mut self, obj: Box<dyn Hittable>) {
         self.objects.push(obj);
-    }
-    pub fn clear(&mut self) {
-        self.objects.clear();
     }
 }
 
