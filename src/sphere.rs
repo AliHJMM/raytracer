@@ -1,15 +1,20 @@
 use crate::hittable::{HitRecord, Hittable};
-use crate::math::{Point3, Vec3};
+use crate::math::{Color, Point3, Vec3};
 use crate::ray::Ray;
 
 pub struct Sphere {
     pub center: Point3,
     pub radius: f64,
+    pub albedo: Color,
 }
 
 impl Sphere {
-    pub fn new(center: Point3, radius: f64) -> Self {
-        Self { center, radius }
+    pub fn new(center: Point3, radius: f64, albedo: Color) -> Self {
+        Self {
+            center,
+            radius,
+            albedo,
+        }
     }
 }
 
@@ -26,7 +31,6 @@ impl Hittable for Sphere {
         }
         let sqrt_d = discriminant.sqrt();
 
-        // Find nearest root in [t_min, t_max]
         let mut root = (-half_b - sqrt_d) / a;
         if root < t_min || root > t_max {
             root = (-half_b + sqrt_d) / a;
@@ -37,6 +41,12 @@ impl Hittable for Sphere {
 
         let p = r.at(root);
         let outward_normal = (p - self.center) / self.radius;
-        Some(HitRecord::with_face_normal(r, p, outward_normal, root))
+        Some(HitRecord::with_face_normal(
+            r,
+            p,
+            outward_normal,
+            root,
+            self.albedo,
+        ))
     }
 }

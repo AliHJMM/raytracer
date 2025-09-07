@@ -1,4 +1,4 @@
-use crate::math::{Point3, Vec3};
+use crate::math::{Color, Point3, Vec3};
 use crate::ray::Ray;
 
 #[derive(Clone, Copy, Debug)]
@@ -7,10 +7,17 @@ pub struct HitRecord {
     pub normal: Vec3,
     pub t: f64,
     pub front_face: bool,
+    pub albedo: Color, // NEW: surface color
 }
 
 impl HitRecord {
-    pub fn with_face_normal(r: &Ray, p: Point3, outward_normal: Vec3, t: f64) -> Self {
+    pub fn with_face_normal(
+        r: &Ray,
+        p: Point3,
+        outward_normal: Vec3,
+        t: f64,
+        albedo: Color,
+    ) -> Self {
         let front_face = Vec3::dot(r.direction, outward_normal) < 0.0;
         let normal = if front_face {
             outward_normal
@@ -22,6 +29,7 @@ impl HitRecord {
             normal,
             t,
             front_face,
+            albedo,
         }
     }
 }
