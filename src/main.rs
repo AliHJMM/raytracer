@@ -1,5 +1,6 @@
 mod camera;
 mod cube;
+mod cylinder;
 mod hittable;
 mod light;
 mod math;
@@ -12,6 +13,7 @@ use std::io::{BufWriter, Write};
 
 use camera::Camera;
 use cube::Cube;
+use cylinder::Cylinder;
 use hittable::{Hittable, HittableList};
 use light::PointLight;
 use math::{Color, Point3, Vec3};
@@ -91,21 +93,31 @@ fn main() {
     // World (sphere + ground plane)
     // World (sphere + ground plane + cube)
     let mut world = HittableList::new();
-    world.add(Box::new(Sphere::new(
-        Point3::new(-0.6, 0.0, -1.3),
-        0.5,
-        Color::new(0.9, 0.2, 0.2), // red sphere
-    )));
     world.add(Box::new(Plane::new(
         Point3::new(0.0, -0.5, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
         Color::new(0.8, 0.8, 0.8),
     )));
-    // NEW cube
+    // Sphere (left)
+    world.add(Box::new(Sphere::new(
+        Point3::new(-0.8, 0.0, -1.3),
+        0.5,
+        Color::new(0.9, 0.2, 0.2),
+    )));
+
+    // Cube (center)
     world.add(Box::new(Cube::from_center_size(
-        Point3::new(0.6, -0.2, -1.6), // center.y = -0.2 → bottom at -0.5
+        Point3::new(0.3, -0.2, -1.4),
         0.6,
-        Color::new(0.4, 0.5, 0.9),
+        Color::new(0.35, 0.42, 0.65),
+    )));
+
+    // Cylinder (right)
+    world.add(Box::new(Cylinder::new(
+        Point3::new(1.4, -0.1, -1.6),
+        0.3,
+        0.4,
+        Color::new(0.2, 0.7, 0.4),
     )));
 
     // Light (white)
