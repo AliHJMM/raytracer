@@ -150,3 +150,19 @@ Through this project, you will learn:
 - Applying **geometry & math** for object rendering.
 - Implementing **lighting models** and camera perspectives.
 - Generating and handling **custom image formats**.
+
+# 1) Sphere scene
+
+cargo run --release -- --scene=sphere --res=800x600 --out=sphere.ppm
+
+# 2) Plane + cube, lower brightness than sphere image
+
+cargo run --release -- --scene=cube_plane_dim --res=800x600 --out=cube_plane_dim.ppm
+
+# 3) All objects
+
+cargo run --release -- --scene=all --res=800x600 --out=all_objects.ppm
+
+# 4) All objects, different camera
+
+cargo run --release -- --scene=all_alt_cam --res=800x600 --out=all_objects_alt_cam.ppm

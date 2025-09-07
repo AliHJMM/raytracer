@@ -57,7 +57,7 @@ impl Aabb {
             let mut t0 = (minb - origin) * inv;
             let mut t1 = (maxb - origin) * inv;
             let mut enter_normal = normal_neg;
-            let exit_normal = normal_pos;
+            let _exit_normal = normal_pos;
 
             if t0 > t1 {
                 std::mem::swap(&mut t0, &mut t1);
