@@ -79,7 +79,7 @@ fn ray_color(r: &Ray, world: &impl Hittable, light: &PointLight, depth: i32) -> 
         let refl = rec.reflectivity.clamp(0.0, 1.0);
         if refl > 0.0 {
             const BIAS: f64 = 1e-4;
-            let reflect_dir = reflect(r.direction.unit(), rec.normal).unit(); // use incoming dir
+            let reflect_dir = reflect(r.direction.unit(), rec.normal).unit();
             let reflect_ray = Ray::new(rec.p + rec.normal * BIAS, reflect_dir);
             let reflected = ray_color(&reflect_ray, world, light, depth - 1);
             return local * (1.0 - refl) + reflected * refl;
@@ -187,13 +187,13 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
                 Point3::new(0.0, -0.5, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
                 Color::new(0.82, 0.82, 0.82),
-                0.15, // reflective floor
+                0.15,
             )));
             world.add(Box::new(Sphere::new(
                 Point3::new(0.0, 0.0, -1.3),
                 0.5,
                 Color::new(0.9, 0.2, 0.2),
-                0.05, // subtle gloss only
+                0.05,
             )));
 
             let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
@@ -221,13 +221,13 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
                 Point3::new(0.0, -0.5, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
                 Color::new(0.82, 0.82, 0.82),
-                0.05, // very subtle reflection
+                0.05, // very subtle
             )));
             world.add(Box::new(Cube::from_center_size(
                 Point3::new(0.0, -0.2, -1.3),
                 0.6,
                 Color::new(0.25, 0.28, 0.35),
-                0.00, // matte to keep it dim
+                0.00, // matte so brightness is clearly lower than the sphere scene
             )));
 
             let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(0.6, 0.6, 0.6)); // dimmer
@@ -255,26 +255,26 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
                 Point3::new(0.0, -0.5, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
                 Color::new(0.82, 0.82, 0.82),
-                0.15,
+                0.05, // subtle floor reflection
             )));
             world.add(Box::new(Sphere::new(
                 Point3::new(-0.8, 0.0, -1.3),
                 0.5,
                 Color::new(0.9, 0.2, 0.2),
-                0.25,
+                0.10, // small glossy effect
             )));
             world.add(Box::new(Cube::from_center_size(
                 Point3::new(0.3, -0.2, -1.4),
                 0.6,
                 Color::new(0.35, 0.42, 0.65),
-                0.05,
+                0.00, // fully matte (keeps shape visible)
             )));
             world.add(Box::new(Cylinder::new(
                 Point3::new(1.4, -0.1, -1.6),
                 0.3,
                 0.4,
                 Color::new(0.2, 0.7, 0.4),
-                0.20,
+                0.05, // very slight gloss
             )));
 
             let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
@@ -298,31 +298,38 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
         SceneKind::AllAltCam => {
             let mut world = HittableList::new();
 
-            // same objects/materials as All
+            // Plane – subtle mirror
+            // Plane – subtle mirror
             world.add(Box::new(Plane::new(
                 Point3::new(0.0, -0.5, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
                 Color::new(0.82, 0.82, 0.82),
-                0.15,
+                0.05,
             )));
+
+            // Sphere – solid red, tiny gloss
             world.add(Box::new(Sphere::new(
                 Point3::new(-0.8, 0.0, -1.3),
                 0.5,
                 Color::new(0.9, 0.2, 0.2),
-                0.25,
+                0.02, // <- tiny reflection only
             )));
+
+            // Cube – matte
             world.add(Box::new(Cube::from_center_size(
                 Point3::new(0.3, -0.2, -1.4),
                 0.6,
                 Color::new(0.35, 0.42, 0.65),
-                0.05,
+                0.00, // <- fully matte
             )));
+
+            // Cylinder – light semi-gloss
             world.add(Box::new(Cylinder::new(
                 Point3::new(1.4, -0.1, -1.6),
                 0.3,
                 0.4,
                 Color::new(0.2, 0.7, 0.4),
-                0.20,
+                0.08, // <- very subtle
             )));
 
             let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
