@@ -1,102 +1,157 @@
-# Ray Tracer (`rt`)
+# 🌌 Ray Tracer (`rt`)
 
 ## 📖 Project Overview
 
-This project implements a **ray tracer** in Rust that generates 3D scenes into 2D images using the **ray tracing** technique rather than rasterization.  
-Ray tracing works by simulating rays from the camera through each pixel, calculating light interactions such as brightness, shadows, reflections, and refractions.
-
-The output is saved as a **PPM image file** (`.ppm`), which can be easily viewed with most image viewers.
+This project implements a **ray tracer** in Rust that renders 3D objects into 2D images by simulating rays of light.  
+It computes light interactions (shadows, diffuse lighting, simple reflections) per ray and saves results as **PPM (`.ppm`)** images.
 
 ---
 
-## 🎯 Objectives
+## 🎯 Features
 
-The ray tracer supports:
-
-- Rendering of **4 basic objects**:
-  - Sphere
-  - Cube
-  - Plane
-  - Cylinder
-- **Object transformations** (change position in space).
-- **Camera movement** to view the same scene from different angles.
-- **Lighting system** with brightness and shadows.
-- Output of **.ppm images** in configurable resolution (default: `800x600`).
+- Primitives: **Sphere**, **Cube**, **Plane**, **Cylinder**
+- Moveable **camera** (position, look-at, FOV)
+- **Point light** with shadows
+- **Per‑object color** (albedo) and **reflectivity**
+- Configurable **image size** and **samples per pixel**
 
 ---
 
-## 🖼️ Required Scenarios
-
-The auditor will validate your implementation using 4 `.ppm` images:
-
-1. A scene with a **sphere**.
-2. A scene with a **plane** and a **cube**, with reduced brightness compared to the first image.
-3. A scene with **all four objects** (sphere, cube, cylinder, plane).
-4. The same as (3) but viewed from a **different camera angle**.
-
----
-
-## ⚙️ Installation & Usage
-
-### 1. Clone the repository
+## 🖼️ Required Scenarios (ready to run)
 
 ```bash
-git clone https://learn.reboot01.com/git/alihasan6/rt
-cd rt
-```
+# 1) Sphere only
+cargo run --release -- --scene=sphere --res=800x600 --out=sphere.ppm
 
-### 2. Build & Run
+# 2) Plane + Cube (dimmer than sphere image)
+cargo run --release -- --scene=cube_plane_dim --res=800x600 --out=cube_plane_dim.ppm
 
-```bash
-cargo run > output.ppm
-```
+# 3) All objects (sphere + cube + cylinder + plane)
+cargo run --release -- --scene=all --res=800x600 --out=all_objects.ppm
 
-This will generate `output.ppm` which can be opened with an image viewer.
-
-To test with smaller resolutions:
-
-```bash
-cargo run -- --width 320 --height 240 > test.ppm
+# 4) Same scene, different camera
+cargo run --release -- --scene=all_alt_cam --res=800x600 --out=all_objects_alt_cam.ppm
 ```
 
 ---
 
-## 🧱 Features
+## ⚙️ Build
 
-### Objects
-
-Each object can be created and positioned:
-
-```rust
-let sphere = Sphere::new(Vec3::new(1.0, 1.0, 1.0), 1.0);  // center (1,1,1), radius 1
-let plane = Plane::new(Vec3::new(0.0, -1.0, 0.0), Vec3::new(0.0, 1.0, 0.0)); // ground plane
-let cube = Cube::new(Vec3::new(-1.0, 0.0, -3.0), 2.0);  // center and side length
-let cylinder = Cylinder::new(Vec3::new(0.0, 0.0, -2.0), 1.0, 3.0); // position, radius, height
+```bash
+cargo build --release
 ```
 
-### Lighting
+Default output size is set via the CLI (`--res=WxH`). Use higher `--spp` for smoother images.
 
-Brightness can be adjusted globally or per object:
+---
+
+## 🧱 Creating Objects (code examples)
+
+Each object takes **position + size + color + reflectivity**:
 
 ```rust
-scene.set_light(Light::new(Vec3::new(5.0, 10.0, -5.0), 0.8)); // light position + intensity
+use crate::math::{Point3, Vec3, Color};
+use crate::sphere::Sphere;
+use crate::plane::Plane;
+use crate::cube::Cube;
+use crate::cylinder::Cylinder;
+
+// Sphere: center, radius, color, reflectivity
+let sphere = Sphere::new(Point3::new(0.0, 0.0, -1.3), 0.5, Color::new(0.9, 0.2, 0.2), 0.10);
+
+// Plane: point on plane, normal, color, reflectivity
+let plane  = Plane::new(Point3::new(0.0, -0.5, 0.0), Vec3::new(0.0, 1.0, 0.0),
+                        Color::new(0.82, 0.82, 0.82), 0.05);
+
+// Cube: center, edge size, color, reflectivity
+let cube   = Cube::from_center_size(Point3::new(0.3, -0.2, -1.4), 0.6,
+                                    Color::new(0.35, 0.42, 0.65), 0.00);
+
+// Cylinder: center (mid‑height), radius, half_height, color, reflectivity
+let cyl    = Cylinder::new(Point3::new(1.4, -0.1, -1.6), 0.3, 0.4,
+                           Color::new(0.2, 0.7, 0.4), 0.05);
 ```
 
-### Camera
+Add objects to the world via `HittableList::add(Box::new(obj))` in `build_scene`.
 
-You can move the camera to change perspective:
+---
+
+## 💡 Correct Ways to Change **Brightness**
+
+There are **three** levers in this codebase. Use whichever matches your goal:
+
+### 1) **Light intensity** (global scene brightness)
+
+The point light’s intensity is a **color multiplier**. Increasing it brightens everything.
 
 ```rust
-let mut camera = Camera::new(Vec3::new(0.0, 0.0, -5.0));
-camera.look_at(Vec3::new(0.0, 0.0, 0.0));  // target point
-camera.set_fov(60.0);                      // field of view
+use crate::light::PointLight;
+use crate::math::{Point3, Color};
+
+// Bright white light
+let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
+
+// Dimmer light (used in --scene=cube_plane_dim)
+let dim   = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(0.6, 0.6, 0.6));
+```
+
+> In the dim cube scene, **only** the light intensity is reduced → the whole scene renders darker than the sphere scene.
+
+### 2) **Object albedo** (per‑object brightness)
+
+Albedo is the base color that receives light. Darker albedo ⇒ darker object under the same light.
+
+```rust
+// Brighter red sphere vs. darker blue‑grey cube
+let sphere_albedo = Color::new(0.9, 0.2, 0.2);
+let cube_albedo   = Color::new(0.25, 0.28, 0.35);
+```
+
+### 3) **Ambient term** (global “base light” in shadows)
+
+Ambient is added everywhere (even in shadow). It appears in `shade_lambert_with_shadow`:
+
+```rust
+fn shade_lambert_with_shadow(/* … */) -> Color {
+    let ambient = 0.12; // <- increase to lift dark areas globally; decrease for punchier shadows
+    // ...
+}
+```
+
+> **Tip:** Prefer changing **light intensity** or **albedo** first. Tuning ambient changes the whole contrast of the image (shadows vs. lit areas).
+
+**Not brightness:** `reflectivity` affects how reflective a surface looks, but it is **not** an exposure control.
+
+---
+
+## 🎥 Camera: position, direction, field of view
+
+Create a camera by passing **look‑from**, **look‑at**, **up**, **vertical FOV (degrees)**, and **aspect**:
+
+```rust
+use crate::camera::Camera;
+use crate::math::{Point3, Vec3};
+
+let aspect = width as f64 / height as f64;
+
+// Default view
+let cam = Camera::new(Point3::new(0.0, 0.0, 0.0),  // look‑from
+                      Point3::new(0.0, 0.0, -1.0), // look‑at
+                      Vec3::new(0.0, 1.0, 0.0),    // up
+                      90.0,                        // FOV
+                      aspect);
+
+// Alternate perspective (used in --scene=all_alt_cam)
+let alt = Camera::new(Point3::new(1.6, 0.5, 1.2),
+                      Point3::new(0.1, -0.2, -1.5),
+                      Vec3::new(0.0, 1.0, 0.0),
+                      75.0,
+                      aspect);
 ```
 
 ---
 
-## 📂 PPM Format
-
-Output is in **Portable PixMap (P3)** format:
+## 🖨️ PPM Output (P3, ASCII)
 
 ```
 P3
@@ -107,62 +162,33 @@ r g b
 ...
 ```
 
-- Header:
-  - `P3` = ASCII full color
-  - `800 600` = width and height
-  - `255` = max color intensity
-- Body: RGB triplets for each pixel.
+- `P3` = ASCII full‑color
+- `800 600` = width × height
+- `255` = max color value
 
 ---
 
-## 🔥 Bonus Features (optional)
+## 📌 Notes for Auditors
 
-- **Textures** for object surfaces.
-- **Reflections & Refractions** (shiny glass-like surfaces).
-- **Particles** and **fluids**.
-- Command-line flags (e.g., `-t` for textures).
-
----
-
-## 📑 Documentation
-
-The project provides:
-
-- Step-by-step **examples** for creating objects.
-- Instructions to **adjust brightness** and **camera view**.
-- Clear guidance for generating `.ppm` images.
+- **Shadows** are computed via a shadow ray to the point light.
+- **Reflection** is per‑object with recursive bounces (depth limited).
+- The “dimmer cube” requirement is satisfied by using **lower light intensity** in `--scene=cube_plane_dim`.
+- All four scenes are reproducible using the commands at the top.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Language:** Rust
-- **Build Tool:** Cargo
-- **Output Format:** PPM (`.ppm`)
+- **Rust**, Cargo
+- Basic linear algebra (Vec3, dot/cross)
+- CPU ray tracing
+- PPM image output
 
 ---
 
 ## ✅ Learning Outcomes
 
-Through this project, you will learn:
-
-- Fundamentals of **ray tracing**.
-- Applying **geometry & math** for object rendering.
-- Implementing **lighting models** and camera perspectives.
-- Generating and handling **custom image formats**.
-
-# 1) Sphere scene
-
-cargo run --release -- --scene=sphere --res=800x600 --out=sphere.ppm
-
-# 2) Plane + cube, lower brightness than sphere image
-
-cargo run --release -- --scene=cube_plane_dim --res=800x600 --out=cube_plane_dim.ppm
-
-# 3) All objects
-
-cargo run --release -- --scene=all --res=800x600 --out=all_objects.ppm
-
-# 4) All objects, different camera
-
-cargo run --release -- --scene=all_alt_cam --res=800x600 --out=all_objects_alt_cam.ppm
+- Ray–object intersections (sphere, plane, cube (AABB), cylinder)
+- Shading: ambient + Lambert diffuse + hard shadows
+- Reflections with recursion limits
+- Camera modeling and image synthesis
