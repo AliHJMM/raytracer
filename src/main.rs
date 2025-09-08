@@ -158,9 +158,18 @@ fn parse_vec3(s: &str) -> Option<Vec3> {
     Some(Vec3::new(x, y, z))
 }
 
-fn parse_color(s: &str) -> Option<Color> {
-    parse_vec3(s).map(|v| Color::new(v.x, v.y, v.z))
+fn clamp01(x: f64) -> f64 {
+    x.max(0.0).min(1.0)
 }
+
+fn parse_color_clamped01(s: &str) -> Option<Color> {
+    parse_vec3(s).map(|v| Color::new(clamp01(v.x), clamp01(v.y), clamp01(v.z)))
+}
+
+fn parse_color_nonneg(s: &str) -> Option<Color> {
+    parse_vec3(s).map(|v| Color::new(v.x.max(0.0), v.y.max(0.0), v.z.max(0.0)))
+}
+
 fn split4(s: &str) -> Option<(&str, &str, &str, &str)> {
     let parts: Vec<&str> = s.split(';').map(|t| t.trim()).collect();
     if parts.len() == 4 {
@@ -240,58 +249,65 @@ fn parse_args() -> Args {
                 light_pos = Some(Point3::new(v.x, v.y, v.z));
             }
         } else if let Some(val) = a.strip_prefix("--light-int=") {
-            if let Some(c) = parse_color(val) {
+            if let Some(c) = parse_color_nonneg(val) {
                 light_int = Some(c);
             }
 
-        // --- objects (repeatable) ---
+            // --- objects (repeatable) ---
         } else if let Some(val) = a.strip_prefix("--add-sphere=") {
             if let Some((p, rad, col, refl)) = split4(val).and_then(|(p, r, c, f)| {
                 Some((
                     parse_vec3(p)?,
-                    r.parse().ok()?,
-                    parse_color(c)?,
-                    f.parse().ok()?,
+                    r.parse::<f64>().ok()?, // <- explicit type
+                    parse_color_clamped01(c)?,
+                    f.parse::<f64>().ok()?, // <- explicit type
                 ))
             }) {
-                add_spheres.push((Point3::new(p.x, p.y, p.z), rad, col, refl));
+                add_spheres.push((Point3::new(p.x, p.y, p.z), rad, col, refl.clamp(0.0, 1.0)));
             }
         } else if let Some(val) = a.strip_prefix("--add-plane=") {
             if let Some((p, n, col, refl)) = split4(val).and_then(|(p, n, c, f)| {
                 Some((
                     parse_vec3(p)?,
                     parse_vec3(n)?,
-                    parse_color(c)?,
-                    f.parse().ok()?,
+                    parse_color_clamped01(c)?,
+                    f.parse::<f64>().ok()?, // <- explicit type
                 ))
             }) {
-                add_planes.push((Point3::new(p.x, p.y, p.z), n, col, refl));
+                add_planes.push((Point3::new(p.x, p.y, p.z), n, col, refl.clamp(0.0, 1.0)));
             }
         } else if let Some(val) = a.strip_prefix("--add-cube=") {
             if let Some((p, size, col, refl)) = split4(val).and_then(|(p, s, c, f)| {
                 Some((
                     parse_vec3(p)?,
-                    s.parse().ok()?,
-                    parse_color(c)?,
-                    f.parse().ok()?,
+                    s.parse::<f64>().ok()?, // <- explicit type
+                    parse_color_clamped01(c)?,
+                    f.parse::<f64>().ok()?, // <- explicit type
                 ))
             }) {
-                add_cubes.push((Point3::new(p.x, p.y, p.z), size, col, refl));
+                add_cubes.push((Point3::new(p.x, p.y, p.z), size, col, refl.clamp(0.0, 1.0)));
             }
         } else if let Some(val) = a.strip_prefix("--add-cylinder=") {
             if let Some((p, rad, hh, col, refl)) = split5(val).and_then(|(p, r, hh, c, f)| {
                 Some((
                     parse_vec3(p)?,
-                    r.parse().ok()?,
-                    hh.parse().ok()?,
-                    parse_color(c)?,
-                    f.parse().ok()?,
+                    r.parse::<f64>().ok()?,
+                    hh.parse::<f64>().ok()?,
+                    parse_color_clamped01(c)?,
+                    f.parse::<f64>().ok()?,
                 ))
             }) {
-                add_cyls.push((Point3::new(p.x, p.y, p.z), rad, hh, col, refl));
+                add_cyls.push((
+                    Point3::new(p.x, p.y, p.z),
+                    rad,
+                    hh,
+                    col,
+                    refl.clamp(0.0, 1.0),
+                ));
             }
-        }
-    }
+        } // <-- this closes the last `else if`
+    } // <-- ADD THIS: closes `for a in std::env::args().skip(1) {`
+      // (You were missing this one)
 
     // If user supplied any custom objects, switch to Custom scene automatically.
     if !add_spheres.is_empty()
@@ -311,6 +327,7 @@ fn parse_args() -> Args {
     }
     .to_string();
 
+    // Return the parsed args
     Args {
         scene,
         width,
@@ -332,18 +349,6 @@ struct Scene {
     light: PointLight,
     cam: Camera,
 }
-
-// Works at module level
-const DEFAULT_LIGHT_POS: Point3 = Point3 {
-    x: 5.0,
-    y: 5.0,
-    z: -2.0,
-};
-const DEFAULT_LIGHT_INT: Color = Color {
-    x: 1.0,
-    y: 1.0,
-    z: 1.0,
-};
 
 fn build_scene(args: &Args) -> Scene {
     let aspect_ratio = args.width as f64 / args.height as f64;
@@ -496,8 +501,6 @@ fn build_scene(args: &Args) -> Scene {
 
             let light = light_from(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
             // different viewpoint
-            let lookfrom = Point3::new(1.6, 0.5, 1.2);
-            let lookat = Point3::new(0.1, -0.2, -1.5);
             let cam = cam_from(
                 Point3::new(1.6, 0.5, 1.2),
                 Point3::new(0.1, -0.2, -1.5),
