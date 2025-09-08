@@ -151,6 +151,7 @@ fn parse_resolution(s: &str) -> Option<(i32, i32)> {
 }
 
 fn parse_vec3(s: &str) -> Option<Vec3> {
+    let s = dequote(s);
     let mut parts = s.split(',').map(|t| t.trim().parse::<f64>());
     let x = parts.next()?.ok()?;
     let y = parts.next()?.ok()?;
@@ -171,7 +172,8 @@ fn parse_color_nonneg(s: &str) -> Option<Color> {
 }
 
 fn split4(s: &str) -> Option<(&str, &str, &str, &str)> {
-    let parts: Vec<&str> = s.split(';').map(|t| t.trim()).collect();
+    let s = dequote(s);
+    let parts: Vec<&str> = s.split(';').map(|t| dequote(t.trim())).collect();
     if parts.len() == 4 {
         Some((parts[0], parts[1], parts[2], parts[3]))
     } else {
@@ -179,11 +181,23 @@ fn split4(s: &str) -> Option<(&str, &str, &str, &str)> {
     }
 }
 fn split5(s: &str) -> Option<(&str, &str, &str, &str, &str)> {
-    let parts: Vec<&str> = s.split(';').map(|t| t.trim()).collect();
+    let s = dequote(s);
+    let parts: Vec<&str> = s.split(';').map(|t| dequote(t.trim())).collect();
     if parts.len() == 5 {
         Some((parts[0], parts[1], parts[2], parts[3], parts[4]))
     } else {
         None
+    }
+}
+
+fn dequote(s: &str) -> &str {
+    let b = s.as_bytes();
+    if s.len() >= 2
+        && ((b[0] == b'"' && b[s.len() - 1] == b'"') || (b[0] == b'\'' && b[s.len() - 1] == b'\''))
+    {
+        &s[1..s.len() - 1]
+    } else {
+        s
     }
 }
 
@@ -204,7 +218,8 @@ fn parse_args() -> Args {
     let mut add_cyls: Vec<(Point3, f64, f64, Color, f64)> = Vec::new();
 
     for a in std::env::args().skip(1) {
-        if let Some(val) = a.strip_prefix("--scene=") {
+        if let Some(val0) = a.strip_prefix("--scene=") {
+            let val = dequote(val0);
             scene = match val {
                 "sphere" => SceneKind::Sphere,
                 "cube_plane_dim" => SceneKind::CubePlaneDim,
@@ -213,87 +228,100 @@ fn parse_args() -> Args {
                 "custom" => SceneKind::Custom,
                 _ => SceneKind::All,
             };
-        } else if let Some(val) = a.strip_prefix("--res=") {
+        } else if let Some(val0) = a.strip_prefix("--res=") {
+            let val = dequote(val0);
             if let Some((w, h)) = parse_resolution(val) {
                 width = w;
                 height = h;
             }
-        } else if let Some(val) = a.strip_prefix("--out=") {
+        } else if let Some(val0) = a.strip_prefix("--out=") {
+            let val = dequote(val0);
             out = Some(val.to_string());
-        } else if let Some(val) = a.strip_prefix("--spp=") {
+        } else if let Some(val0) = a.strip_prefix("--spp=") {
+            let val = dequote(val0);
             if let Ok(v) = val.parse::<i32>() {
                 spp = v.max(1);
             }
 
-        // --- camera overrides ---
-        } else if let Some(val) = a.strip_prefix("--lookfrom=") {
+        // --- camera ---
+        } else if let Some(val0) = a.strip_prefix("--lookfrom=") {
+            let val = dequote(val0);
             if let Some(v) = parse_vec3(val) {
                 cam.lookfrom = Some(Point3::new(v.x, v.y, v.z));
             }
-        } else if let Some(val) = a.strip_prefix("--lookat=") {
+        } else if let Some(val0) = a.strip_prefix("--lookat=") {
+            let val = dequote(val0);
             if let Some(v) = parse_vec3(val) {
                 cam.lookat = Some(Point3::new(v.x, v.y, v.z));
             }
-        } else if let Some(val) = a.strip_prefix("--vup=") {
+        } else if let Some(val0) = a.strip_prefix("--vup=") {
+            let val = dequote(val0);
             if let Some(v) = parse_vec3(val) {
                 cam.vup = Some(v);
             }
-        } else if let Some(val) = a.strip_prefix("--fov=") {
+        } else if let Some(val0) = a.strip_prefix("--fov=") {
+            let val = dequote(val0);
             if let Ok(v) = val.parse::<f64>() {
                 cam.fov = Some(v);
             }
 
-        // --- light overrides ---
-        } else if let Some(val) = a.strip_prefix("--light-pos=") {
+        // --- light ---
+        } else if let Some(val0) = a.strip_prefix("--light-pos=") {
+            let val = dequote(val0);
             if let Some(v) = parse_vec3(val) {
                 light_pos = Some(Point3::new(v.x, v.y, v.z));
             }
-        } else if let Some(val) = a.strip_prefix("--light-int=") {
+        } else if let Some(val0) = a.strip_prefix("--light-int=") {
+            let val = dequote(val0);
             if let Some(c) = parse_color_nonneg(val) {
                 light_int = Some(c);
             }
 
-            // --- objects (repeatable) ---
-        } else if let Some(val) = a.strip_prefix("--add-sphere=") {
+        // --- objects (repeatable) ---
+        } else if let Some(val0) = a.strip_prefix("--add-sphere=") {
+            let val = dequote(val0);
             if let Some((p, rad, col, refl)) = split4(val).and_then(|(p, r, c, f)| {
                 Some((
-                    parse_vec3(p)?,
-                    r.parse::<f64>().ok()?, // <- explicit type
-                    parse_color_clamped01(c)?,
-                    f.parse::<f64>().ok()?, // <- explicit type
+                    parse_vec3(dequote(p))?,
+                    r.parse::<f64>().ok()?,
+                    parse_color_clamped01(dequote(c))?,
+                    f.parse::<f64>().ok()?,
                 ))
             }) {
                 add_spheres.push((Point3::new(p.x, p.y, p.z), rad, col, refl.clamp(0.0, 1.0)));
             }
-        } else if let Some(val) = a.strip_prefix("--add-plane=") {
+        } else if let Some(val0) = a.strip_prefix("--add-plane=") {
+            let val = dequote(val0);
             if let Some((p, n, col, refl)) = split4(val).and_then(|(p, n, c, f)| {
                 Some((
-                    parse_vec3(p)?,
-                    parse_vec3(n)?,
-                    parse_color_clamped01(c)?,
-                    f.parse::<f64>().ok()?, // <- explicit type
+                    parse_vec3(dequote(p))?,
+                    parse_vec3(dequote(n))?,
+                    parse_color_clamped01(dequote(c))?,
+                    f.parse::<f64>().ok()?,
                 ))
             }) {
                 add_planes.push((Point3::new(p.x, p.y, p.z), n, col, refl.clamp(0.0, 1.0)));
             }
-        } else if let Some(val) = a.strip_prefix("--add-cube=") {
+        } else if let Some(val0) = a.strip_prefix("--add-cube=") {
+            let val = dequote(val0);
             if let Some((p, size, col, refl)) = split4(val).and_then(|(p, s, c, f)| {
                 Some((
-                    parse_vec3(p)?,
-                    s.parse::<f64>().ok()?, // <- explicit type
-                    parse_color_clamped01(c)?,
-                    f.parse::<f64>().ok()?, // <- explicit type
+                    parse_vec3(dequote(p))?,
+                    s.parse::<f64>().ok()?,
+                    parse_color_clamped01(dequote(c))?,
+                    f.parse::<f64>().ok()?,
                 ))
             }) {
                 add_cubes.push((Point3::new(p.x, p.y, p.z), size, col, refl.clamp(0.0, 1.0)));
             }
-        } else if let Some(val) = a.strip_prefix("--add-cylinder=") {
+        } else if let Some(val0) = a.strip_prefix("--add-cylinder=") {
+            let val = dequote(val0);
             if let Some((p, rad, hh, col, refl)) = split5(val).and_then(|(p, r, hh, c, f)| {
                 Some((
-                    parse_vec3(p)?,
+                    parse_vec3(dequote(p))?,
                     r.parse::<f64>().ok()?,
                     hh.parse::<f64>().ok()?,
-                    parse_color_clamped01(c)?,
+                    parse_color_clamped01(dequote(c))?,
                     f.parse::<f64>().ok()?,
                 ))
             }) {
@@ -305,9 +333,10 @@ fn parse_args() -> Args {
                     refl.clamp(0.0, 1.0),
                 ));
             }
-        } // <-- this closes the last `else if`
-    } // <-- ADD THIS: closes `for a in std::env::args().skip(1) {`
-      // (You were missing this one)
+        }
+    }
+    // <-- ADD THIS: closes `for a in std::env::args().skip(1) {`
+    // (You were missing this one)
 
     // If user supplied any custom objects, switch to Custom scene automatically.
     if !add_spheres.is_empty()
@@ -550,6 +579,15 @@ fn build_scene(args: &Args) -> Scene {
 fn main() {
     let max_depth = 5;
     let args = parse_args();
+    eprintln!(
+        "DEBUG: spheres={} planes={} cubes={} cylinders={}  cam? {}  light? {}",
+        args.add_spheres.len(),
+        args.add_planes.len(),
+        args.add_cubes.len(),
+        args.add_cylinders.len(),
+        args.cam.lookfrom.is_some() as u8,
+        args.light_pos.is_some() as u8
+    );
     let Scene { world, light, cam } = build_scene(&args);
 
     // Output

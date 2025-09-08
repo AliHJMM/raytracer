@@ -33,6 +33,76 @@ cargo run --release -- --scene=all --res=800x600 --out=all_objects.ppm
 cargo run --release -- --scene=all_alt_cam --res=800x600 --out=all_objects_alt_cam.ppm
 ```
 
+# === Cube + Cylinder (default camera) ===
+
+cargo run --release -- --scene=custom --res=1280x720 --spp=32 --out=cube_cyl.ppm \
+ --add-plane="0,-0.5,0;0,1,0;0.82,0.82,0.82;0.05" \
+ --add-cube="0.0,-0.2,-1.2;0.6;0.35,0.42,0.65;0.00" \
+ --add-cylinder="0.8,-0.1,-1.6;0.3;0.4;0.20,0.70,0.40;0.05"
+
+# === Same scene, alt cam (right side view) ===
+
+cargo run --release -- --scene=custom --res=1280x720 --spp=32 --out=cube_cyl_cam1.ppm \
+ --lookfrom=1.2,0.4,1.4 --lookat=0.2,-0.2,-1.4 --fov=60 \
+ --add-plane="0,-0.5,0;0,1,0;0.82,0.82,0.82;0.05" \
+ --add-cube="0.0,-0.2,-1.2;0.6;0.35,0.42,0.65;0.00" \
+ --add-cylinder="0.8,-0.1,-1.6;0.3;0.4;0.20,0.70,0.40;0.05"
+
+# === Same scene, alt cam (slightly top-down, narrower FOV) ===
+
+cargo run --release -- --scene=custom --res=1280x720 --spp=32 --out=cube_cyl_cam2.ppm \
+ --lookfrom=0.0,1.0,1.8 --lookat=0.2,-0.2,-1.4 --fov=45 \
+ --add-plane="0,-0.5,0;0,1,0;0.82,0.82,0.82;0.05" \
+ --add-cube="0.0,-0.2,-1.2;0.6;0.35,0.42,0.65;0.00" \
+ --add-cylinder="0.8,-0.1,-1.6;0.3;0.4;0.20,0.70,0.40;0.05"
+
+# === Sphere + Cylinder (default camera) ===
+
+cargo run --release -- --scene=custom --res=1280x720 --spp=32 --out=sphere_cyl.ppm \
+ --add-plane="0,-0.5,0;0,1,0;0.82,0.82,0.82;0.05" \
+ --add-sphere="-0.6,0.0,-1.2;0.45;0.90,0.25,0.25;0.10" \
+ --add-cylinder="0.5,-0.1,-1.5;0.28;0.38;0.20,0.70,0.40;0.06"
+
+# === Sphere + Cylinder, alt cam (left side view) ===
+
+cargo run --release -- --scene=custom --res=1280x720 --spp=32 --out=sphere_cyl_cam1.ppm \
+ --lookfrom=-1.1,0.3,1.3 --lookat=-0.2,-0.1,-1.3 --fov=55 \
+ --add-plane="0,-0.5,0;0,1,0;0.82,0.82,0.82;0.05" \
+ --add-sphere="-0.6,0.0,-1.2;0.45;0.90,0.25,0.25;0.10" \
+ --add-cylinder="0.5,-0.1,-1.5;0.28;0.38;0.20,0.70,0.40;0.06"
+
+# === Sphere + Cube (with subtle reflections), alt cam ===
+
+cargo run --release -- --scene=custom --res=1280x720 --spp=32 --out=sphere_cube_cam.ppm \
+ --lookfrom=1.4,0.5,1.0 --lookat=0.1,-0.1,-1.3 --fov=60 \
+ --add-plane="0,-0.5,0;0,1,0;0.82,0.82,0.82;0.05" \
+ --add-sphere="-0.8,0.0,-1.3;0.5;0.90,0.20,0.20;0.10" \
+ --add-cube="0.3,-0.2,-1.4;0.6;0.35,0.42,0.65;0.00"
+
+# === Cube + Cylinder with blue floor ===
+
+cargo run --release -- --scene=custom --res=1280x720 --spp=32 --out=cube_cyl_bluefloor.ppm \
+ --lookfrom=0.8,0.3,1.4 --lookat=0.3,-0.2,-1.4 --fov=55 \
+ --add-plane="0,-0.5,0;0,1,0;0.10,0.10,0.90;0.05" \
+ --add-cube="0.0,-0.2,-1.2;0.6;0.30,0.35,0.50;0.00" \
+ --add-cylinder="0.9,-0.1,-1.6;0.30;0.40;0.20,0.70,0.40;0.05"
+
+# === Same as above, dimmer light (global brightness change) ===
+
+cargo run --release -- --scene=custom --res=1280x720 --spp=32 --out=cube_cyl_bluefloor_dim.ppm \
+ --lookfrom=0.8,0.3,1.4 --lookat=0.3,-0.2,-1.4 --fov=55 \
+ --light-int=0.6,0.6,0.6 \
+ --add-plane="0,-0.5,0;0,1,0;0.10,0.10,0.90;0.05" \
+ --add-cube="0.0,-0.2,-1.2;0.6;0.30,0.35,0.50;0.00" \
+ --add-cylinder="0.9,-0.1,-1.6;0.30;0.40;0.20,0.70,0.40;0.05"
+
+# === Cylinder close-up (wider FOV) ===
+
+cargo run --release -- --scene=custom --res=1280x720 --spp=32 --out=cyl_closeup.ppm \
+ --lookfrom=0.7,0.3,1.0 --lookat=0.8,-0.1,-1.6 --fov=70 \
+ --add-plane="0,-0.5,0;0,1,0;0.82,0.82,0.82;0.05" \
+ --add-cylinder="0.8,-0.1,-1.6;0.32;0.42;0.25,0.75,0.45;0.06"
+
 ---
 
 ## ⚙️ Build
