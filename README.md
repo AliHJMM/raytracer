@@ -103,6 +103,24 @@ cargo run --release -- --scene=custom --res=1280x720 --spp=32 --out=cyl_closeup.
  --add-plane="0,-0.5,0;0,1,0;0.82,0.82,0.82;0.05" \
  --add-cylinder="0.8,-0.1,-1.6;0.32;0.42;0.25,0.75,0.45;0.06"
 
+# === All Objects Blue Plane ===
+
+cargo run --release -- --scene=custom --res=1280x720 --spp=32 --out=all_objects_blueplane.ppm \
+ --add-plane="0,-0.5,0;0,1,0;0.1,0.1,0.9;0.05" \
+ --add-sphere="-0.8,0.0,-1.3;0.5;0.9,0.2,0.2;0.10" \
+ --add-cube="0.3,-0.2,-1.4;0.6;0.35,0.42,0.65;0.00" \
+ --add-cylinder="1.4,-0.1,-1.6;0.3;0.4;0.2,0.7,0.4;0.05"
+
+---
+
+# === Three Spheres Blue Plane ===
+
+cargo run --release -- --scene=custom --res=1280x720 --spp=32 --out=three_spheres_blueplane.ppm \
+ --add-plane="0,-0.5,0;0,1,0;0.1,0.1,0.9;0.05" \
+ --add-sphere="-0.9,-0.1,-1.3;0.4;0.9,0.2,0.2;0.1" \
+ --add-sphere="0.0,-0.1,-1.3;0.4;0.2,0.9,0.2;0.1" \
+ --add-sphere="0.9,-0.1,-1.3;0.4;0.2,0.2,0.9;0.1"
+
 ---
 
 ## ⚙️ Build
