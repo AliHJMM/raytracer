@@ -333,6 +333,38 @@ fn parse_args() -> Args {
                     refl.clamp(0.0, 1.0),
                 ));
             }
+        } else if a == "--help" {
+            eprintln!(
+                "Usage: cargo run --release -- [FLAGS]
+
+Required:
+  --scene=<sphere|cube_plane_dim|all|all_alt_cam|custom>
+  --res=<WxH>                 Image resolution (e.g. 800x600)
+  --out=<file.ppm>            Output file
+  --spp=<N>                   Samples per pixel (antialiasing)
+
+Camera:
+  --lookfrom=x,y,z            Camera position
+  --lookat=x,y,z              Camera target
+  --vup=x,y,z                 Camera up vector (default 0,1,0)
+  --fov=<deg>                 Field of view (vertical)
+
+Light:
+  --light-pos=x,y,z           Point light position
+  --light-int=r,g,b           Light intensity (color multiplier)
+
+Objects (repeatable):
+  --add-sphere=\"cx,cy,cz; radius; r,g,b; reflect\"
+  --add-plane=\"px,py,pz; nx,ny,nz; r,g,b; reflect\"
+  --add-cube=\"cx,cy,cz; size; r,g,b; reflect\"
+  --add-cylinder=\"cx,cy,cz; radius; half_h; r,g,b; reflect\"
+
+Notes:
+  - If any --add-* is provided, scene switches to custom automatically.
+  - Reflectivity is 0.0 (matte) to 1.0 (mirror).
+"
+            );
+            std::process::exit(0);
         }
     }
     // <-- ADD THIS: closes `for a in std::env::args().skip(1) {`
