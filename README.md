@@ -199,3 +199,26 @@ r g b
 - Shading: ambient + Lambert diffuse + hard shadows
 - Reflections with recursion limits
 - Camera modeling and image synthesis
+
+### Custom camera
+
+- `--lookfrom "x,y,z"` set camera position
+- `--lookat "x,y,z"` set camera target
+- `--vup "x,y,z"` (optional) camera up vector (default 0,1,0)
+- `--fov <deg>` vertical field of view
+
+### Light
+
+- `--light-pos "x,y,z"`
+- `--light-int "r,g,b"` (acts as intensity; try 0.6,0.6,0.6 to dim)
+
+### Build-your-own scene
+
+Use `--scene=custom` and any number of:
+
+- `--add-plane "px,py,pz; nx,ny,nz; r,g,b; reflectivity"`
+- `--add-sphere "cx,cy,cz; radius; r,g,b; reflectivity"`
+- `--add-cube "cx,cy,cz; size; r,g,b; reflectivity"`
+- `--add-cylinder "cx,cy,cz; radius; half_h; r,g,b; reflectivity"`
+
+> If any `--add-*` flag is provided, custom mode is assumed automatically.

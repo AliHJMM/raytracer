@@ -100,14 +100,43 @@ enum SceneKind {
     CubePlaneDim,
     All,
     AllAltCam,
+    Custom,
 }
 
+impl Default for SceneKind {
+    fn default() -> Self {
+        SceneKind::All
+    }
+}
+
+#[derive(Default, Clone)]
+struct CamOverride {
+    lookfrom: Option<Point3>,
+    lookat: Option<Point3>,
+    vup: Option<Vec3>,
+    fov: Option<f64>,
+}
+
+#[derive(Default)]
 struct Args {
     scene: SceneKind,
     width: i32,
     height: i32,
     out: String,
     samples_per_pixel: i32,
+
+    // NEW: camera override
+    cam: CamOverride,
+
+    // NEW: light override
+    light_pos: Option<Point3>,
+    light_int: Option<Color>,
+
+    // NEW: custom objects (repeatable flags)
+    add_spheres: Vec<(Point3, f64, Color, f64)>, // (center, radius, albedo, refl)
+    add_planes: Vec<(Point3, Vec3, Color, f64)>, // (point, normal, albedo, refl)
+    add_cubes: Vec<(Point3, f64, Color, f64)>,   // (center, size, albedo, refl)
+    add_cylinders: Vec<(Point3, f64, f64, Color, f64)>, // (center, radius, half_h, albedo, refl)
 }
 
 fn parse_resolution(s: &str) -> Option<(i32, i32)> {
@@ -121,12 +150,49 @@ fn parse_resolution(s: &str) -> Option<(i32, i32)> {
     Some((w.max(1), h.max(1)))
 }
 
+fn parse_vec3(s: &str) -> Option<Vec3> {
+    let mut parts = s.split(',').map(|t| t.trim().parse::<f64>());
+    let x = parts.next()?.ok()?;
+    let y = parts.next()?.ok()?;
+    let z = parts.next()?.ok()?;
+    Some(Vec3::new(x, y, z))
+}
+
+fn parse_color(s: &str) -> Option<Color> {
+    parse_vec3(s).map(|v| Color::new(v.x, v.y, v.z))
+}
+fn split4(s: &str) -> Option<(&str, &str, &str, &str)> {
+    let parts: Vec<&str> = s.split(';').map(|t| t.trim()).collect();
+    if parts.len() == 4 {
+        Some((parts[0], parts[1], parts[2], parts[3]))
+    } else {
+        None
+    }
+}
+fn split5(s: &str) -> Option<(&str, &str, &str, &str, &str)> {
+    let parts: Vec<&str> = s.split(';').map(|t| t.trim()).collect();
+    if parts.len() == 5 {
+        Some((parts[0], parts[1], parts[2], parts[3], parts[4]))
+    } else {
+        None
+    }
+}
+
 fn parse_args() -> Args {
     let mut scene = SceneKind::All;
     let mut width = 400;
     let mut height = 300;
     let mut out: Option<String> = None;
     let mut spp = 16;
+
+    let mut cam = CamOverride::default();
+    let mut light_pos: Option<Point3> = None;
+    let mut light_int: Option<Color> = None;
+
+    let mut add_spheres: Vec<(Point3, f64, Color, f64)> = Vec::new();
+    let mut add_planes: Vec<(Point3, Vec3, Color, f64)> = Vec::new();
+    let mut add_cubes: Vec<(Point3, f64, Color, f64)> = Vec::new();
+    let mut add_cyls: Vec<(Point3, f64, f64, Color, f64)> = Vec::new();
 
     for a in std::env::args().skip(1) {
         if let Some(val) = a.strip_prefix("--scene=") {
@@ -135,6 +201,7 @@ fn parse_args() -> Args {
                 "cube_plane_dim" => SceneKind::CubePlaneDim,
                 "all" => SceneKind::All,
                 "all_alt_cam" => SceneKind::AllAltCam,
+                "custom" => SceneKind::Custom,
                 _ => SceneKind::All,
             };
         } else if let Some(val) = a.strip_prefix("--res=") {
@@ -148,7 +215,91 @@ fn parse_args() -> Args {
             if let Ok(v) = val.parse::<i32>() {
                 spp = v.max(1);
             }
+
+        // --- camera overrides ---
+        } else if let Some(val) = a.strip_prefix("--lookfrom=") {
+            if let Some(v) = parse_vec3(val) {
+                cam.lookfrom = Some(Point3::new(v.x, v.y, v.z));
+            }
+        } else if let Some(val) = a.strip_prefix("--lookat=") {
+            if let Some(v) = parse_vec3(val) {
+                cam.lookat = Some(Point3::new(v.x, v.y, v.z));
+            }
+        } else if let Some(val) = a.strip_prefix("--vup=") {
+            if let Some(v) = parse_vec3(val) {
+                cam.vup = Some(v);
+            }
+        } else if let Some(val) = a.strip_prefix("--fov=") {
+            if let Ok(v) = val.parse::<f64>() {
+                cam.fov = Some(v);
+            }
+
+        // --- light overrides ---
+        } else if let Some(val) = a.strip_prefix("--light-pos=") {
+            if let Some(v) = parse_vec3(val) {
+                light_pos = Some(Point3::new(v.x, v.y, v.z));
+            }
+        } else if let Some(val) = a.strip_prefix("--light-int=") {
+            if let Some(c) = parse_color(val) {
+                light_int = Some(c);
+            }
+
+        // --- objects (repeatable) ---
+        } else if let Some(val) = a.strip_prefix("--add-sphere=") {
+            if let Some((p, rad, col, refl)) = split4(val).and_then(|(p, r, c, f)| {
+                Some((
+                    parse_vec3(p)?,
+                    r.parse().ok()?,
+                    parse_color(c)?,
+                    f.parse().ok()?,
+                ))
+            }) {
+                add_spheres.push((Point3::new(p.x, p.y, p.z), rad, col, refl));
+            }
+        } else if let Some(val) = a.strip_prefix("--add-plane=") {
+            if let Some((p, n, col, refl)) = split4(val).and_then(|(p, n, c, f)| {
+                Some((
+                    parse_vec3(p)?,
+                    parse_vec3(n)?,
+                    parse_color(c)?,
+                    f.parse().ok()?,
+                ))
+            }) {
+                add_planes.push((Point3::new(p.x, p.y, p.z), n, col, refl));
+            }
+        } else if let Some(val) = a.strip_prefix("--add-cube=") {
+            if let Some((p, size, col, refl)) = split4(val).and_then(|(p, s, c, f)| {
+                Some((
+                    parse_vec3(p)?,
+                    s.parse().ok()?,
+                    parse_color(c)?,
+                    f.parse().ok()?,
+                ))
+            }) {
+                add_cubes.push((Point3::new(p.x, p.y, p.z), size, col, refl));
+            }
+        } else if let Some(val) = a.strip_prefix("--add-cylinder=") {
+            if let Some((p, rad, hh, col, refl)) = split5(val).and_then(|(p, r, hh, c, f)| {
+                Some((
+                    parse_vec3(p)?,
+                    r.parse().ok()?,
+                    hh.parse().ok()?,
+                    parse_color(c)?,
+                    f.parse().ok()?,
+                ))
+            }) {
+                add_cyls.push((Point3::new(p.x, p.y, p.z), rad, hh, col, refl));
+            }
         }
+    }
+
+    // If user supplied any custom objects, switch to Custom scene automatically.
+    if !add_spheres.is_empty()
+        || !add_planes.is_empty()
+        || !add_cubes.is_empty()
+        || !add_cyls.is_empty()
+    {
+        scene = SceneKind::Custom;
     }
 
     let default_out = match scene {
@@ -156,6 +307,7 @@ fn parse_args() -> Args {
         SceneKind::CubePlaneDim => "scene_cube_plane_dim.ppm",
         SceneKind::All => "scene_all.ppm",
         SceneKind::AllAltCam => "scene_all_alt_cam.ppm",
+        SceneKind::Custom => "scene_custom.ppm",
     }
     .to_string();
 
@@ -165,6 +317,13 @@ fn parse_args() -> Args {
         height,
         out: out.unwrap_or(default_out),
         samples_per_pixel: spp,
+        cam,
+        light_pos,
+        light_int,
+        add_spheres,
+        add_planes,
+        add_cubes,
+        add_cylinders: add_cyls,
     }
 }
 
@@ -174,14 +333,40 @@ struct Scene {
     cam: Camera,
 }
 
-fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
-    let aspect_ratio = width as f64 / height as f64;
+// Works at module level
+const DEFAULT_LIGHT_POS: Point3 = Point3 {
+    x: 5.0,
+    y: 5.0,
+    z: -2.0,
+};
+const DEFAULT_LIGHT_INT: Color = Color {
+    x: 1.0,
+    y: 1.0,
+    z: 1.0,
+};
 
-    match kind {
-        // 1) Sphere-only scene
+fn build_scene(args: &Args) -> Scene {
+    let aspect_ratio = args.width as f64 / args.height as f64;
+
+    // Merge scene defaults with CLI overrides
+    let light_from = |default_pos: Point3, default_int: Color| -> PointLight {
+        PointLight::new(
+            args.light_pos.unwrap_or(default_pos),
+            args.light_int.unwrap_or(default_int),
+        )
+    };
+
+    let cam_from = |default_lookfrom: Point3, default_lookat: Point3, default_fov: f64| -> Camera {
+        let lf = args.cam.lookfrom.unwrap_or(default_lookfrom);
+        let la = args.cam.lookat.unwrap_or(default_lookat);
+        let vup = args.cam.vup.unwrap_or(Vec3::new(0.0, 1.0, 0.0));
+        let fov = args.cam.fov.unwrap_or(default_fov);
+        Camera::new(lf, la, vup, fov, aspect_ratio)
+    };
+
+    match args.scene {
         SceneKind::Sphere => {
             let mut world = HittableList::new();
-
             world.add(Box::new(Plane::new(
                 Point3::new(0.0, -0.5, 0.0),
                 Vec3::new(0.0, 1.0, 0.0),
@@ -194,14 +379,11 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
                 Color::new(0.9, 0.2, 0.2),
                 0.05,
             )));
-
-            let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
-            let cam = Camera::new(
+            let light = light_from(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
+            let cam = cam_from(
                 Point3::new(0.0, 0.0, 0.0),
                 Point3::new(0.0, 0.0, -1.0),
-                Vec3::new(0.0, 1.0, 0.0),
                 90.0,
-                aspect_ratio,
             );
 
             Scene { world, light, cam }
@@ -224,13 +406,11 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
                 0.00, // matte so brightness is clearly lower than the sphere scene
             )));
 
-            let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(0.6, 0.6, 0.6)); // dimmer
-            let cam = Camera::new(
+            let light = light_from(Point3::new(5.0, 5.0, -2.0), Color::new(0.6, 0.6, 0.6));
+            let cam = cam_from(
                 Point3::new(0.0, 0.0, 0.0),
                 Point3::new(0.0, -0.1, -1.3),
-                Vec3::new(0.0, 1.0, 0.0),
                 90.0,
-                aspect_ratio,
             );
 
             Scene { world, light, cam }
@@ -266,13 +446,11 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
                 0.05, // very slight gloss
             )));
 
-            let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
-            let cam = Camera::new(
+            let light = light_from(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
+            let cam = cam_from(
                 Point3::new(0.0, 0.0, 0.0),
                 Point3::new(0.0, 0.0, -1.0),
-                Vec3::new(0.0, 1.0, 0.0),
                 90.0,
-                aspect_ratio,
             );
 
             Scene { world, light, cam }
@@ -316,16 +494,49 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
                 0.08, // <- very subtle
             )));
 
-            let light = PointLight::new(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
+            let light = light_from(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
             // different viewpoint
             let lookfrom = Point3::new(1.6, 0.5, 1.2);
             let lookat = Point3::new(0.1, -0.2, -1.5);
-            let cam = Camera::new(
-                lookfrom,
-                lookat,
-                Vec3::new(0.0, 1.0, 0.0),
+            let cam = cam_from(
+                Point3::new(1.6, 0.5, 1.2),
+                Point3::new(0.1, -0.2, -1.5),
                 75.0,
-                aspect_ratio,
+            );
+
+            Scene { world, light, cam }
+        }
+        SceneKind::Custom => {
+            let mut world = HittableList::new();
+
+            for (p, n, col, refl) in &args.add_planes {
+                world.add(Box::new(Plane::new(*p, (*n).unit(), *col, *refl)));
+            }
+            for (c, r, col, refl) in &args.add_spheres {
+                world.add(Box::new(Sphere::new(*c, *r, *col, *refl)));
+            }
+            for (c, size, col, refl) in &args.add_cubes {
+                world.add(Box::new(Cube::from_center_size(*c, *size, *col, *refl)));
+            }
+            for (c, rad, hh, col, refl) in &args.add_cylinders {
+                world.add(Box::new(Cylinder::new(*c, *rad, *hh, *col, *refl)));
+            }
+
+            // sensible defaults if user didn't add any plane/light/cam
+            if args.add_planes.is_empty() {
+                world.add(Box::new(Plane::new(
+                    Point3::new(0.0, -0.5, 0.0),
+                    Vec3::new(0.0, 1.0, 0.0),
+                    Color::new(0.82, 0.82, 0.82),
+                    0.05,
+                )));
+            }
+
+            let light = light_from(Point3::new(5.0, 5.0, -2.0), Color::new(1.0, 1.0, 1.0));
+            let cam = cam_from(
+                Point3::new(0.0, 0.5, 1.0),
+                Point3::new(0.0, 0.0, -1.0),
+                75.0,
             );
 
             Scene { world, light, cam }
@@ -336,9 +547,7 @@ fn build_scene(kind: SceneKind, width: i32, height: i32) -> Scene {
 fn main() {
     let max_depth = 5;
     let args = parse_args();
-    let Scene {
-        world, light, cam, ..
-    } = build_scene(args.scene, args.width, args.height);
+    let Scene { world, light, cam } = build_scene(&args);
 
     // Output
     let file = File::create(&args.out).expect("Failed to create file");
