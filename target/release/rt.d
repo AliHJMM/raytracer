@@ -1,1 +1,0 @@
-C:\Users\AliHa\RT\target\release\rt.exe: C:\Users\AliHa\RT\src\camera.rs C:\Users\AliHa\RT\src\cube.rs C:\Users\AliHa\RT\src\cylinder.rs C:\Users\AliHa\RT\src\hittable.rs C:\Users\AliHa\RT\src\light.rs C:\Users\AliHa\RT\src\main.rs C:\Users\AliHa\RT\src\math.rs C:\Users\AliHa\RT\src\plane.rs C:\Users\AliHa\RT\src\ray.rs C:\Users\AliHa\RT\src\sphere.rs
